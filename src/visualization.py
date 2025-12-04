@@ -8,7 +8,7 @@ class Visualizer:
         # pero usamos defaults en cada método.
 
     def create_missing_heatmap(self, df):
-        fig = plt.figure(figsize=(10, 4))
+        fig = plt.figure(figsize=(10, 8.5))
         sns.heatmap(df.isnull(), cbar=False, yticklabels=False, cmap='viridis')
         plt.title('Mapa de Valores Faltantes')
         plt.tight_layout()

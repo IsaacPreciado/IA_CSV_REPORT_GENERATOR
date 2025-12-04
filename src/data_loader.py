@@ -16,7 +16,7 @@ class DataLoader:
             
             # 1. Validación de Requisitos (PDF)
             if self.df.shape[0] < 2000 or self.df.shape[1] < 10:
-                print(f"⚠️ AVISO: El dataset no cumple los requisitos mínimos (2000 filas, 10 cols).")
+                return False
 
             # 2. Clasificación y Filtrado Inteligente
             self._filter_columns()

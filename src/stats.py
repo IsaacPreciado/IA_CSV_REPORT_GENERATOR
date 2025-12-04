@@ -46,6 +46,6 @@ class StatsAnalyzer:
             Q1 = self.df[col].quantile(0.25)
             Q3 = self.df[col].quantile(0.75)
             IQR = Q3 - Q1
-            outliers = ((self.df[col] < (Q1 - 1.5 * IQR)) | (self.df[col] > (Q3 + 1.5 * IQR))).sum()
-            total_outliers += total_outliers
+            currentOutliers = ((self.df[col] < (Q1 - 1.5 * IQR)) | (self.df[col] > (Q3 + 1.5 * IQR))).sum()
+            total_outliers += currentOutliers
         return total_outliers
