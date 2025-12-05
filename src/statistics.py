@@ -15,7 +15,7 @@ class StatsAnalyzer:
         """Obtiene la moda de categóricas (ignorando textos libres)."""
         modes = {}
         for col in self.categorical_cols:
-            if self.df[col].nunique() > 50: continue # Ignorar nombres/textos largos
+            if self.df[col].nunique() > 50: continue
             modes[col] = self.df[col].mode()[0]
         return modes
 
