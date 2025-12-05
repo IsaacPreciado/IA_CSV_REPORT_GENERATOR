@@ -31,7 +31,6 @@ class AIReporter:
         - % Nulos Promedio: {missing_percent:.2f}%
         - Outliers detectados (IQR): {outliers}
         - Top Correlaciones (Pearson con signo): {top_corr}
-        - Modas (Categorías más frecuentes): {cat_modes}
         
         ESTRUCTURA DEL REPORTE (Markdown):
         Resumen Ejecutivo (Estado de salud de los datos).
