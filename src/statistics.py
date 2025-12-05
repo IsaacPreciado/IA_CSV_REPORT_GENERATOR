@@ -1,4 +1,3 @@
-import pandas as pd
 import numpy as np
 
 class StatsAnalyzer:
@@ -28,7 +27,7 @@ class StatsAnalyzer:
         # Matriz Pearson
         corr_matrix = self.df[self.numerical_cols].corr(method='pearson')
         
-        # Lógica para extraer Top 5 manteniendo el signo
+        #Eliminar diplucados
         mask = np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
         corrs = corr_matrix.where(mask).stack()
         

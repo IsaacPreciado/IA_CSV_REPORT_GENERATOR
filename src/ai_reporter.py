@@ -16,31 +16,46 @@ class AIReporter:
         else:
             print("⚠️ AVISO: No hay API Key configurada.")
 
-    def generate_report(self, dataset_name, shape, missing_percent, outliers, top_corr):
+    # Agregamos 'cat_modes' a los argumentos
+    def generate_report(self, dataset_name, shape, missing_percent, outliers, top_corr, cat_modes):
         if not self.model or not self.api_key:
-            return "Error: Falta API Key o configuración del modelo."
+            return "Error: Falta API Key o configuración del modelo.", None
+
         print(f"🧠 Generando Reporte con {self.model_name}...")
         
         prompt = f"""
         Actúa como Data Scientist Senior. Analiza el dataset '{dataset_name}'.
         
-        METADATOS:
+        METADATOS ESTADÍSTICOS:
         - Dimensiones: {shape}
         - % Nulos Promedio: {missing_percent:.2f}%
         - Outliers detectados (IQR): {outliers}
         - Top Correlaciones (Pearson con signo): {top_corr}
+        - Modas (Categorías más frecuentes): {cat_modes}
         
         ESTRUCTURA DEL REPORTE (Markdown):
-        1. Resumen Ejecutivo (Estado de salud de los datos).
-        2. Tres Hallazgos Clave (Basado en las correlaciones y outliers).
-        3. Tres Recomendaciones de Limpieza y Preprocesamiento.
+        Resumen Ejecutivo (Estado de salud de los datos).
+        3 Hallazgos Clave (Interpreta correlaciones, outliers y modas de negocio).
+        3 Recomendaciones de Limpieza y Preprocesamiento.
         """
 
         try:
             response = self.model.generate_content(prompt)
             report_text = response.text
             
-            return report_text, False
+            output_folder = "reports"
+            if not os.path.exists(output_folder):
+                os.makedirs(output_folder)
+            
+            clean_name = dataset_name.split(".")[0]
+            filename = f"reporte_{clean_name}.md"
+            
+            output_path = os.path.join(output_folder, filename)
+            
+            with open(output_path, "w", encoding='utf-8') as f:
+                f.write(report_text)
+            
+            return report_text, output_path
                 
         except Exception as e:
-            return str(e), True
+            return f"❌ Error API Gemini: {str(e)}", None

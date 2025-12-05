@@ -36,13 +36,6 @@ class DataLoader:
         for col in all_num:
             unique_count = self.df[col].nunique()
             total_rows = len(self.df)
-            is_integer = pd.api.types.is_integer_dtype(self.df[col])
-            
-            # Lógica Anti-ID:
-            # Si es entero y todos son únicos -> Es un ID.
-            if unique_count == total_rows and is_integer:
-                print(f"   🚫 Ignorando '{col}': ID detectado (Entero único).")
-                continue
             
             # Si el nombre sugiere ID y tiene variabilidad extrema
             is_id_name = any(x in col.lower() for x in ['id', 'code', 'codigo', 'index'])
