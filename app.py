@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 # Importar nuestros módulos
 from src.data_loader import DataLoader
-from src.stats import StatsAnalyzer
+from src.statistics import StatsAnalyzer
 from src.visualization import Visualizer
 from src.ai_reporter import AIReporter
 
@@ -45,7 +45,6 @@ st.markdown("Carga tu dataset, visualiza estadísticas y obtén un reporte profe
 uploaded_file = st.file_uploader("Sube tu archivo CSV", type=["csv"])
 
 if uploaded_file is not None:
-
     temp_filename = uploaded_file.name
     with open(temp_filename, "wb") as f:
         f.write(uploaded_file.getbuffer())
@@ -63,17 +62,44 @@ if uploaded_file is not None:
 
         # --- B. Estadísticas ---
         stats = StatsAnalyzer(df, num_cols, cat_cols)
+        
+        # Cálculos
         missing_series = stats.get_missing_percentage()
         missing_avg = missing_series.mean() if not missing_series.empty else 0
         top_corrs, corr_matrix = stats.calculate_correlations()
         total_outliers = stats.count_outliers_iqr()
+        cat_modes = stats.get_categorical_modes()
 
-        # Métricas en columnas
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Filas", df.shape[0])
-        col2.metric("Columnas", df.shape[1])
-        col3.metric("% Nulos Promedio", f"{missing_avg:.2f}%")
-        col4.metric("Total Outliers (IQR)", total_outliers)
+        # KPIs Generales
+        st.markdown("### 📈 Resumen General")
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        kpi1.metric("Filas", f"{df.shape[0]:,}")
+        kpi2.metric("Columnas", df.shape[1])
+        kpi3.metric("% Nulos Promedio", f"{missing_avg:.2f}%")
+        kpi4.metric("Total Outliers", f"{total_outliers:,}")
+        
+        st.divider()
+
+        st.markdown("### 🏆 Modas (Valores más frecuentes)")
+        
+        if cat_modes:
+            # Creamos un contenedor expansible pero estilizado por dentro
+            with st.expander("Ver detalle de categorías", expanded=True):
+                # Calculamos cuántas columnas usar en el grid (ej. 3 por fila)
+                cols = st.columns(3)
+                for idx, (col_name, mode_val) in enumerate(cat_modes.items()):
+                    # Usamos el operador módulo para ciclar entre las 3 columnas
+                    with cols[idx % 3]:
+                        st.metric(
+                            label=col_name, 
+                            value=str(mode_val), 
+                            delta="Moda", 
+                            delta_color="off" # off = gris neutro
+                        )
+        else:
+            st.info("No hay variables categóricas relevantes para calcular moda.")
+
+        st.divider()
 
         # --- C. Visualización ---
         st.subheader("🎨 Visualizaciones Automáticas")
@@ -93,59 +119,65 @@ if uploaded_file is not None:
                     fig_corr = viz.create_correlation_heatmap(corr_matrix)
                     st.pyplot(fig_corr)
                 else:
-                    st.info("No hay suficientes datos numéricos para correlación.")
+                    st.warning("No hay suficientes datos numéricos.")
 
         with tab2:
-            st.markdown("**Top 3 Variables Numéricas**")
+            st.markdown("**Top Variables Numéricas**")
             for col in num_cols:
                 st.pyplot(viz.create_numerical_distributions(df, col))
         
         with tab3:
-            st.markdown("**Top 3 Variables Categóricas (Filtradas)**")
+            st.markdown("**Top Variables Categóricas**")
             valid_cats = [c for c in cat_cols if df[c].nunique() <= 20]
             if valid_cats:
                 for col in valid_cats:
                     st.pyplot(viz.create_categorical_count(df, col))
             else:
-                st.info("No se encontraron variables categóricas aptas para graficar (demasiados valores únicos).")
+                st.info("No hay variables aptas para graficar.")
+
+        st.divider()
 
         # --- D. Reporte IA ---
-        st.subheader("🧠 Generación de Reporte con IA")
+        st.subheader("🧠 Reporte Inteligente")
         
-        generate_btn = st.button("Generar Insights con Gemini", type="primary")
+        col_gen, col_info = st.columns([1, 2])
         
+        with col_gen:
+            generate_btn = st.button("Generar Insights con Gemini", type="primary", use_container_width=True)
+        
+
         if generate_btn:
             if not user_api_key:
-                st.error("⚠️ Por favor ingresa una API Key válida en la barra lateral.")
+                st.error("⚠️ Falta la API Key. Configúrala en el menú lateral.")
             else:
-                with st.spinner(f"Consultando a {selected_model}..."):
+                with st.spinner(f"Analizando datos con {selected_model}..."):
                     reporter = AIReporter(user_api_key, selected_model)
-                    content, error = reporter.generate_report(
+                    report_content, saved_path = reporter.generate_report(
                         dataset_name=uploaded_file.name,
                         shape=df.shape,
                         missing_percent=missing_avg,
                         outliers=total_outliers,
-                        top_corr=top_corrs
+                        top_corr=top_corrs,
+                        cat_modes=cat_modes
                     )
                     
-                    if not error:
-                        st.success("¡Reporte generado exitosamente!")
-                        st.markdown(content)
+                    if saved_path:
+                        st.success("¡Análisis completado!")
+                        with st.container(border=True):
+                            st.markdown(report_content)
                         
-                        # Botón para descargar
                         st.download_button(
-                            label="Descargar Reporte MD",
-                            data=content,
-                            file_name=os.path.basename(uploaded_file.name.split(".")[0] + "_report.md"),
+                            label="📥 Descargar Reporte (Markdown)",
+                            data=report_content,
+                            file_name=os.path.basename(saved_path),
                             mime="text/markdown"
                         )
                     else:
-                        st.error(content) # Muestra el mensaje de error de la API
+                        st.error(report_content)
 
     except Exception as e:
-        st.error(f"Ocurrió un error inesperado: {e}")
+        st.error(f"Error inesperado: {e}")
     
     finally:
-        # Limpieza del archivo temporal
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
