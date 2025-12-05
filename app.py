@@ -1,3 +1,10 @@
+"""
+Archivo principal de la aplicación Streamlit "Auto Data Analyst AI".
+
+Este script construye la interfaz de usuario, maneja la carga de archivos,
+orquesta el análisis de datos (estadísticas y visualizaciones) y
+genera un reporte utilizando un modelo de IA (Gemini).
+"""
 import streamlit as st
 import pandas as pd
 import os
@@ -11,12 +18,13 @@ from src.ai_reporter import AIReporter
 
 # Configuración de página
 st.set_page_config(page_title="Auto Data Analyst AI", layout="wide", page_icon="📊")
+# Carga las variables de entorno desde un archivo .env si existe.
 load_dotenv()
 
 # --- SIDEBAR: Configuración ---
 st.sidebar.header("⚙️ Configuración")
 
-# 1. API Key Selector
+# 1. Selector de API Key de Gemini
 default_api_key = os.getenv("GEMINI_API_KEY")
 user_api_key = st.sidebar.text_input(
     "Gemini API Key", 
@@ -25,7 +33,7 @@ user_api_key = st.sidebar.text_input(
     help="Se cargó automáticamente del .env si existe. Puedes sobreescribirla."
 )
 
-# 2. Model Selector
+# 2. Selector del Modelo de IA
 model_options = [
     "gemini-2.5-flash", 
     "gemini-2.0-flash-exp", 
@@ -34,6 +42,7 @@ model_options = [
 ]
 selected_model = st.sidebar.selectbox("Selecciona el Modelo", model_options)
 
+# --- SIDEBAR: Información ---
 st.sidebar.markdown("---")
 st.sidebar.info("Sube un CSV para comenzar el análisis automático.")
 
@@ -41,14 +50,17 @@ st.sidebar.info("Sube un CSV para comenzar el análisis automático.")
 st.title("📊 Auto Data Analyst con IA")
 st.markdown("Carga tu dataset, visualiza estadísticas y obtén un reporte profesional generado por Gemini.")
 
-# 1. Carga de Archivo
+# --- 1. Carga de Archivo ---
 uploaded_file = st.file_uploader("Sube tu archivo CSV", type=["csv"])
 
+# Si se ha subido un archivo, comienza el proceso de análisis.
 if uploaded_file is not None:
+    # Se guarda el archivo temporalmente para poder ser leído por pandas.
     temp_filename = uploaded_file.name
     with open(temp_filename, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
+    # Bloque principal de ejecución con manejo de errores.
     try:
         # --- A. Carga y Validación ---
         with st.spinner('Cargando y validando datos...'):
@@ -57,11 +69,12 @@ if uploaded_file is not None:
                 st.success(f"✅ Archivo cargado exitosamente: {uploaded_file.name}")
                 df, num_cols, cat_cols = loader.get_data()
             else:
+                # Detiene la ejecución si el archivo no cumple con el tamaño mínimo.
                 st.error("❌ El archivo no cumple con los requisitos mínimos (Filas < 2000 o Cols < 10).")
                 st.stop()
 
-        # --- B. Estadísticas ---
-        stats = StatsAnalyzer(df, num_cols, cat_cols)
+        # --- B. Análisis Estadístico ---
+        stats = StatsAnalyzer(df, num_cols, cat_cols) # Instancia del analizador
         
         # Cálculos
         missing_series = stats.get_missing_percentage()
@@ -70,7 +83,7 @@ if uploaded_file is not None:
         total_outliers = stats.count_outliers_iqr()
         cat_modes = stats.get_categorical_modes()
 
-        # KPIs Generales
+        # Mostrar KPIs (Key Performance Indicators) Generales del Dataset
         st.markdown("### 📈 Resumen General")
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         kpi1.metric("Filas", f"{df.shape[0]:,}")
@@ -80,11 +93,12 @@ if uploaded_file is not None:
         
         st.divider()
 
+        # Mostrar las modas (valores más frecuentes) de las columnas categóricas.
         st.markdown("### 🏆 Modas (Valores más frecuentes)")
         
         if cat_modes:
-            # Creamos un contenedor expansible pero estilizado por dentro
             with st.expander("Ver detalle de categorías", expanded=True):
+                # Se crea un grid dinámico para mostrar las métricas de moda.
                 # Calculamos cuántas columnas usar en el grid (ej. 3 por fila)
                 cols = st.columns(3)
                 for idx, (col_name, mode_val) in enumerate(cat_modes.items()):
@@ -101,12 +115,14 @@ if uploaded_file is not None:
 
         st.divider()
 
-        # --- C. Visualización ---
+        # --- C. Visualización de Datos ---
         st.subheader("🎨 Visualizaciones Automáticas")
-        viz = Visualizer()
+        viz = Visualizer() # Instancia del visualizador
         
+        # Creación de pestañas para organizar los gráficos.
         tab1, tab2, tab3 = st.tabs(["Mapa de Calor & Correlación", "Distribuciones Numéricas", "Frecuencia Categórica"])
         
+        # Pestaña 1: Mapas de calor para valores nulos y correlaciones.
         with tab1:
             col_a, col_b = st.columns(2)
             with col_a:
@@ -121,11 +137,13 @@ if uploaded_file is not None:
                 else:
                     st.warning("No hay suficientes datos numéricos.")
 
+        # Pestaña 2: Histogramas y Boxplots para cada variable numérica.
         with tab2:
             st.markdown("**Top Variables Numéricas**")
             for col in num_cols:
                 st.pyplot(viz.create_numerical_distributions(df, col))
         
+        # Pestaña 3: Gráficos de barras para variables categóricas con baja cardinalidad.
         with tab3:
             st.markdown("**Top Variables Categóricas**")
             valid_cats = [c for c in cat_cols if df[c].nunique() <= 20]
@@ -137,7 +155,7 @@ if uploaded_file is not None:
 
         st.divider()
 
-        # --- D. Reporte IA ---
+        # --- D. Generación de Reporte con IA ---
         st.subheader("🧠 Reporte Inteligente")
         
         col_gen, col_info = st.columns([1, 2])
@@ -145,12 +163,14 @@ if uploaded_file is not None:
         with col_gen:
             generate_btn = st.button("Generar Insights con Gemini", type="primary", use_container_width=True)
         
-
+        # Si el usuario hace clic en el botón de generar.
         if generate_btn:
+            # Validar que la API Key ha sido introducida.
             if not user_api_key:
                 st.error("⚠️ Falta la API Key. Configúrala en el menú lateral.")
             else:
                 with st.spinner(f"Analizando datos con {selected_model}..."):
+                    # Instanciar y llamar al generador de reportes.
                     reporter = AIReporter(user_api_key, selected_model)
                     report_content, saved_path = reporter.generate_report(
                         dataset_name=uploaded_file.name,
@@ -161,11 +181,13 @@ if uploaded_file is not None:
                         cat_modes=cat_modes
                     )
                     
+                    # Si el reporte se genera correctamente.
                     if saved_path:
                         st.success("¡Análisis completado!")
+                        # Mostrar el contenido del reporte en la app.
                         with st.container(border=True):
                             st.markdown(report_content)
-                        
+                        # Ofrecer la opción de descargar el reporte.
                         st.download_button(
                             label="📥 Descargar Reporte (Markdown)",
                             data=report_content,
@@ -173,11 +195,14 @@ if uploaded_file is not None:
                             mime="text/markdown"
                         )
                     else:
+                        # Mostrar el mensaje de error si la generación falla.
                         st.error(report_content)
 
     except Exception as e:
+        # Captura cualquier error inesperado durante el proceso.
         st.error(f"Error inesperado: {e}")
     
     finally:
+        # Asegura que el archivo temporal se elimine al final, incluso si hay errores.
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
